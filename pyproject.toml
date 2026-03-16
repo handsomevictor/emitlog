@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "emitlog"
+version = "0.1.0"
+description = "asyncio-first, type-safe, structured logging for Python microservices"
+requires-python = ">=3.13"
+dependencies = []
+
+[project.optional-dependencies]
+fast = ["orjson"]
+dev = ["rich", "pytest", "pytest-asyncio", "mypy", "httpx", "fastapi", "anyio[asyncio]"]
+
+[tool.mypy]
+strict = true
+python_version = "3.13"
+
+[[tool.mypy.overrides]]
+module = "orjson"
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.hatch.build.targets.wheel]
+packages = ["emitlog"]
