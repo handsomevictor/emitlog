@@ -56,6 +56,15 @@ pip install emitlog[fast]
 pip install emitlog[dev]
 ```
 
+If PyPI is unavailable, install directly from GitHub:
+
+```bash
+pip install "git+https://github.com/handsomevictor/emitlog.git"
+
+# with extras
+pip install "git+https://github.com/handsomevictor/emitlog.git#egg=emitlog[fast]"
+```
+
 Python 3.13+ required.
 
 ---

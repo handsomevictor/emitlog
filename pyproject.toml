@@ -6,8 +6,29 @@ build-backend = "hatchling.build"
 name = "emitlog"
 version = "0.1.0"
 description = "asyncio-first, type-safe, structured logging for Python microservices"
+readme = "README.md"
+license = { text = "MIT" }
 requires-python = ">=3.13"
 dependencies = []
+authors = [
+    { name = "Victor", email = "handsomevictor@example.com" },
+]
+keywords = ["logging", "asyncio", "structured-logging", "microservices", "type-safe"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Logging",
+    "Framework :: AsyncIO",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/handsomevictor/emitlog"
+Repository = "https://github.com/handsomevictor/emitlog"
+"Bug Tracker" = "https://github.com/handsomevictor/emitlog/issues"
 
 [project.optional-dependencies]
 fast = ["orjson"]
