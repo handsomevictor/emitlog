@@ -318,7 +318,7 @@ uv run python examples/08_colors_and_formatting.py
 
 - [TUTORIAL.md](docs/TUTORIAL.md) — full feature guide
 - [TESTING.md](docs/TESTING.md) — running tests locally
-- [CLAUDE.md](docs/CLAUDE.md) — architecture reference (for contributors)
+- [ARCHITECTURE.md](docs/ARCHITECTURE.md) — architecture reference (for contributors)
 
 ---
 

@@ -306,7 +306,7 @@ uv run python examples/08_colors_and_formatting.py # 三层颜色全演示
 
 - [TUTORIAL_CN.md](docs/TUTORIAL_CN.md) — 详细功能说明
 - [TESTING_CN.md](docs/TESTING_CN.md) — 测试说明，怎么在本地跑测试
-- [CLAUDE_CN.md](docs/CLAUDE_CN.md) — 架构说明（想参与开发的看这个）
+- [ARCHITECTURE_CN.md](docs/ARCHITECTURE_CN.md) — 架构说明（想参与开发的看这个）
 
 ---
 

@@ -1,4 +1,4 @@
-# CLAUDE.md — emitlog Architecture Reference
+# ARCHITECTURE.md — emitlog Architecture Reference
 
 ## One-line Description
 

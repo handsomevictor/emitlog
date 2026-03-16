@@ -1,4 +1,4 @@
-# CLAUDE_CN.md — emitlog 架构参考
+# ARCHITECTURE_CN.md — emitlog 架构参考
 
 ## 一句话描述
 
