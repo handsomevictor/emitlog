@@ -6,6 +6,7 @@ Structured logging for asyncio Python microservices. Type-safe, zero dependencie
 [![mypy: strict](https://img.shields.io/badge/mypy-strict-brightgreen.svg)](https://mypy.readthedocs.io/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Zero dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen.svg)]()
+[![GitHub](https://img.shields.io/badge/GitHub-handsomevictor%2Femitlog-181717?logo=github)](https://github.com/handsomevictor/emitlog)
 
 ```
 10:23:45.123  INFO  api  user_login  user_id=42  ip=192.168.1.1  │  request_id=req-abc  service=api

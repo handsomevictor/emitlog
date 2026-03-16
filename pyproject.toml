@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "emitlog"
-version = "0.1.0"
+version = "0.1.1"
 description = "asyncio-first, type-safe, structured logging for Python microservices"
 readme = "README.md"
 license = { text = "MIT" }
