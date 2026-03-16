@@ -1,41 +1,31 @@
 # emitlog
 
-> asyncio-first · type-safe · structured logging for Python microservices
+Structured logging for asyncio Python microservices. Type-safe, zero dependencies, works out of the box.
 
 [![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org/downloads/)
 [![mypy: strict](https://img.shields.io/badge/mypy-strict-brightgreen.svg)](https://mypy.readthedocs.io/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Zero dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen.svg)]()
 
-**emitlog** is a structured logging library built from the ground up for modern async Python. Instead of free-form strings, you define log events as typed dataclasses. Your IDE, your type checker, and your on-call engineer will thank you.
-
 ```
 10:23:45.123  INFO  api  user_login  user_id=42  ip=192.168.1.1  │  request_id=req-abc  service=api
 ```
 
-[中文文档 →](README_CN.md)
+[中文文档 →](README_CN.md) | [Français →](README_FR.md)
 
 ---
 
-## Why emitlog?
+## Why
 
-Most Python logging libraries were designed for synchronous, single-threaded code. When you put them in asyncio microservices you hit the same walls:
+Most Python logging libraries were designed before asyncio was a thing. When you use them in async microservices you run into the same problems: log schemas are just strings so renames break silently, `request_id` gets lost when you cross coroutine boundaries because `threading.local` doesn't work there, and mypy has nothing to check because every `logger.info()` call takes `Any`.
 
-| Problem | What you're stuck with today |
-|---|---|
-| Log schema changes silently break dashboards | `logger.info("user %s logged in", user_id)` — the string is the schema |
-| `request_id` disappears mid-async-task | `threading.local` doesn't cross coroutine boundaries |
-| mypy can't verify your log calls | Every logger call is `Any` |
-| Terminal output is unreadable at high velocity | All fields look the same — no visual hierarchy |
-| Sampling is bolted on as an afterthought | Filter lambdas run after serialization |
-
-emitlog is designed to eliminate all of these.
+emitlog treats log events as typed dataclasses. Fields are statically declared, mypy-checked, and IDE-complete. Context propagation is built on `contextvars`, so it works correctly across `asyncio.gather` without any extra setup.
 
 ---
 
 ## Comparison
 
-| Feature | stdlib logging | loguru | structlog | **emitlog** |
+| | stdlib logging | loguru | structlog | emitlog |
 |---|---|---|---|---|
 | Structured / JSON output | ⚠️ via handler | ✅ | ✅ | ✅ |
 | Schema-enforced events | ❌ | ❌ | ❌ | ✅ |
@@ -50,22 +40,23 @@ emitlog is designed to eliminate all of these.
 | Deterministic per-entity sampling | ❌ | ❌ | ❌ | ✅ |
 | Zero mandatory dependencies | ✅ | ✅ | ❌ | ✅ |
 
+loguru is great for sync scripts. structlog's processor pipeline is flexible. Neither has native asyncio context propagation — that's the gap emitlog fills.
+
 ---
 
 ## Installation
 
 ```bash
-# Core (zero dependencies)
 pip install emitlog
 
-# With faster JSON serialization (orjson, ~3–5× faster)
+# Optional: 3–5× faster JSON serialization
 pip install emitlog[fast]
 
-# With rich terminal rendering
+# Optional: rich terminal rendering
 pip install emitlog[dev]
 ```
 
-**Requirements:** Python 3.13+
+Python 3.13+ required.
 
 ---
 
@@ -76,36 +67,31 @@ import asyncio
 import emitlog
 from emitlog import event
 
-# 1. Define your log event as a typed schema
 @event(level="info")
 class UserLogin:
     user_id: int
     ip: str
 
-# 2. Get a logger (safe to call at import time — no IO)
 log = emitlog.get_logger(__name__)
 
 async def main():
-    # 3. Emit — fully typed, mypy-verified
     await log.emit(UserLogin(user_id=42, ip="1.2.3.4"))
 
 asyncio.run(main())
-# Output (terminal):
+# Terminal (tty):
 # 10:23:45.123  INFO  __main__  user_login  user_id=42  ip=1.2.3.4
 #
-# Output (non-tty / production):
+# Production / non-tty (JSON):
 # {"timestamp":"2024-01-15T10:23:45.123Z","level":"info","logger_name":"__main__","event_name":"user_login","user_id":42,"ip":"1.2.3.4"}
 ```
 
-Zero configuration required. emitlog automatically selects colored terminal output when running in a tty, and JSON when piped or running in production.
+No configuration needed. emitlog auto-detects tty and picks Pretty or JSON accordingly.
 
 ---
 
-## Core Concepts
+## Usage
 
 ### Schema Events
-
-Define events as classes. Fields are validated by the type checker. Rename a field and every call site breaks at `mypy` time, not at 3 AM when your dashboard goes blank.
 
 ```python
 from emitlog import event, field
@@ -114,21 +100,20 @@ from emitlog import event, field
 class OrderCreated:
     order_id: str
     amount: float
-    status: str = "pending"   # default values work normally
+    status: str = "pending"   # defaults work as normal
 
 @event(level="warning")
 class RateLimitExceeded:
     user_id: int
     requests_per_minute: int
 
-# Usage — it's a regular dataclass
+# It's a regular dataclass — dataclasses.asdict() etc. all work
 await log.emit(OrderCreated(order_id="ord-123", amount=99.99))
-await log.emit(OrderCreated(order_id="ord-456", amount=1500.0, status="paid"))
 ```
 
-### Context Propagation
+Rename a field and every call site breaks at `mypy` time, not at 3 AM.
 
-Attach fields to every log record emitted within a block. Built on `contextvars` — each `asyncio` task inherits context independently, so `gather()` tasks can never cross-contaminate each other.
+### Context Propagation
 
 ```python
 async def handle_request(request_id: str):
@@ -137,30 +122,25 @@ async def handle_request(request_id: str):
         # → context: {"request_id": "...", "service": "api"}
 
         async with log.context(service="db"):
-            # Inner overrides outer same-name field
             await log.emit(...)
             # → context: {"request_id": "...", "service": "db"}
 
-        # Outer service restored automatically
-        await log.emit(...)
-        # → context: {"request_id": "...", "service": "api"}
+        # outer service automatically restored here
 
-# asyncio.gather: each coroutine has fully isolated context
+# Works correctly across gather — no cross-contamination
 await asyncio.gather(handle_request("req-1"), handle_request("req-2"))
 ```
 
-Sync code works too:
+Sync version:
 
 ```python
 with log.context(job_id="batch-001"):
     log.emit_sync(OrderCreated(order_id="x", amount=0.0))
 ```
 
-### Terminal Coloring (3 Layers)
+### Terminal Coloring (3 layers)
 
-emitlog lets you add color at three different levels of granularity:
-
-**Layer 1 — Static field color** (the field is always this color)
+**Layer 1 — static field color**
 
 ```python
 @event(level="info")
@@ -170,16 +150,14 @@ class OrderCreated:
     status:   str  = field(color="yellow")
 ```
 
-**Layer 2 — Value-range color map** (color depends on the value)
+**Layer 2 — value-range color map**
 
 ```python
 @event(level="info")
 class HttpRequest:
-    method: str = field(color="bold cyan")
     status_code: int = field(
         color_map=[
             (range(200, 300), "bold green"),
-            (range(300, 400), "cyan"),
             (range(400, 500), "bold yellow"),
             (range(500, 600), "bold red"),
         ]
@@ -193,86 +171,68 @@ class HttpRequest:
     )
 ```
 
-**Layer 3 — Inline character spans** (arbitrary coloring inside a string value)
+**Layer 3 — inline character spans**
 
 ```python
 from emitlog import colored, markup
 
-# colored() / span() — programmatic
-msg = colored("i", "green") + " " + colored("love", "red") + " " + colored("you", "blue")
+msg = colored("SUCCESS", "bold green") + " deployed to " + colored("prod", "bold red")
+msg = markup("[bold green]SUCCESS[/bold green] deployed to [bold red]prod[/bold red]")
 
-# markup() — tag syntax
-msg = markup("[bold green]SUCCESS[/bold green] deployed to [bold red]production[/bold red]")
-
-@event(level="info")
-class DeployStatus:
-    message: str   # declare as str; pass Span/SpanList at runtime
-
-await log.emit(DeployStatus(message=msg))
-# Terminal: renders with colors
-# JSON:     {"message": "SUCCESS deployed to production"}  ← plain text, no ANSI
+# In JSON output: plain text, no ANSI codes
 ```
 
 ### Sampling
 
 ```python
-# Random 1% sampling — check happens before any serialization
+# Random 1% — decision is made before serialization
 @event(level="info", sample_rate=0.01)
 class HealthCheckCalled:
     pass
 
-# Deterministic per-user sampling — same user_id always makes the same decision
-# Useful for keeping a user's entire trace or dropping it entirely
+# Deterministic per-user — same user_id always gets the same decision
 @event(level="info", sample_rate=0.1, sample_by="user_id")
 class ApiCalled:
     user_id: int
     endpoint: str
 ```
 
-`sample_rate=1.0` (the default) completely skips the sampling code path — zero overhead.
+`sample_rate=1.0` (the default) skips the sampling code path entirely — no overhead.
 
 ### Configuration
 
 ```python
-from emitlog.sinks import Stderr, AsyncFile, File
-from emitlog.formatters import PrettyFormatter, JsonFormatter, ColorScheme, LevelColors
+from emitlog.sinks import Stderr, AsyncFile
+from emitlog.formatters import PrettyFormatter, ColorScheme, LevelColors
 
 emitlog.configure(
     sinks=[
-        # Colored terminal output
         Stderr(formatter=PrettyFormatter(
-            time_format="%H:%M:%S",
-            show_context_separator=True,
             colors=ColorScheme(
                 levels=LevelColors(info="bold blue", error="bold white on red"),
                 event_name="bold yellow",
-                timestamp="dim green",
             ),
         )),
-        # Async JSON file (background task, non-blocking)
-        AsyncFile("app.log", maxsize=10_000, overflow_policy="drop"),
+        AsyncFile("app.log"),   # non-blocking, background task
     ],
     level="info",
-    capture_stdlib=True,   # bridge stdlib logging.getLogger() to emitlog
+    capture_stdlib=True,   # bridge existing logging.getLogger() calls
 )
-
-# configure() is thread-safe and can be called multiple times
-# Old sinks are automatically closed before new ones take effect
 ```
 
-**Formatter auto-selection** (when no formatter is passed to a sink):
+Formatter auto-selection when none is specified:
 
 | Sink | Condition | Formatter |
 |---|---|---|
-| `Stderr` | `sys.stdout.isatty()` or `EMITLOG_DEV=1` | `PrettyFormatter` |
+| `Stderr` | tty or `EMITLOG_DEV=1` | `PrettyFormatter` |
 | `Stderr` | otherwise | `JsonFormatter` |
 | `File` / `AsyncFile` | always | `JsonFormatter` |
 
-**Color disable** (in order of priority):
+Disable colors (highest priority first):
 
 ```bash
-NO_COLOR=1           # https://no-color.org — respected by emitlog
-EMITLOG_NO_COLOR=1   # emitlog-specific override
+NO_COLOR=1            # https://no-color.org
+EMITLOG_NO_COLOR=1
 # or: PrettyFormatter(colorize=False)
 ```
 
@@ -280,103 +240,85 @@ EMITLOG_NO_COLOR=1   # emitlog-specific override
 
 ```python
 from emitlog.sinks import BaseSink
-from emitlog.formatters import BaseFormatter
 from emitlog._record import LogRecord
 
-# Custom sink — send logs anywhere
 class DatadogSink(BaseSink):
     async def write(self, record: LogRecord) -> None:
-        payload = self._serialize(record)   # JSON string, provided by BaseSink
+        payload = self._serialize(record)   # JSON string, from BaseSink
         await send_to_datadog(payload)
 
     async def close(self) -> None:
-        pass   # flush / cleanup (optional)
-
-# Custom formatter
-class CompactFormatter(BaseFormatter):
-    def format(self, record: LogRecord) -> str:
-        fields = " ".join(f"{k}={v}" for k, v in record.fields.items())
-        return f"{record.level.upper()} {record.event_name} {fields}"
+        pass
 ```
 
-### stdlib Compatibility
+```python
+from emitlog.formatters import BaseFormatter
+
+class CompactFormatter(BaseFormatter):
+    def format(self, record: LogRecord) -> str:
+        return f"{record.level.upper()} {record.event_name}"
+```
+
+### stdlib Bridge
 
 ```python
 emitlog.configure(sinks=[...], capture_stdlib=True)
 
-# Existing stdlib logging calls automatically appear in emitlog sinks
 import logging
-logging.getLogger("sqlalchemy").warning("slow query detected")
-# → event_name="stdlib_log", fields={"message": "slow query detected", "logger": "sqlalchemy"}
+logging.getLogger("sqlalchemy").warning("slow query")
+# → event_name="stdlib_log", fields={"message": "slow query", "logger": "sqlalchemy"}
 ```
 
 ---
 
-## LogRecord Schema
-
-Every emitted event produces a `LogRecord`:
+## LogRecord
 
 ```python
 @dataclass(frozen=True)
 class LogRecord:
-    timestamp:  str              # "2024-01-15T10:23:45.123Z"  (ISO 8601 UTC, ms precision)
-    level:      str              # "debug" | "info" | "warning" | "error" | "critical"
+    timestamp:   str              # "2024-01-15T10:23:45.123Z"
+    level:       str              # "debug" | "info" | "warning" | "error" | "critical"
     logger_name: str
-    event_name: str              # class name → snake_case: UserLogin → "user_login"
-    fields:     dict[str, Any]  # event fields, Span/SpanList converted to plain text
-    raw_fields:  dict[str, Any] # event fields, Span/SpanList preserved (used by PrettyFormatter)
-    context:    dict[str, Any]
+    event_name:  str              # class name → snake_case: UserLogin → "user_login"
+    fields:      dict[str, Any]  # event fields, Span/SpanList as plain text (for JSON)
+    raw_fields:  dict[str, Any]  # event fields, Span/SpanList preserved (for PrettyFormatter)
+    context:     dict[str, Any]
 ```
 
-JSON output key order: `timestamp → level → logger_name → event_name → **fields → **context`
+JSON key order: `timestamp → level → logger_name → event_name → **fields → **context`
 
 ---
 
 ## Color Reference
 
 ```
-Basic colors:    black  red  green  yellow  blue  magenta  cyan  white
-Bright colors:   bright_black  bright_red  bright_green  bright_yellow
-                 bright_blue   bright_magenta  bright_cyan  bright_white
-Modifiers:       bold  dim  italic  underline
-Background:      on black  on red  on green  on yellow  on blue ...
-Combined:        "bold red"   "dim cyan"   "bold white on red"
-No color:        ""  or  None
+Basic:      black  red  green  yellow  blue  magenta  cyan  white
+Bright:     bright_black  bright_red  bright_green  ...  bright_white
+Modifiers:  bold  dim  italic  underline
+Background: on black  on red  on green  ...  on white
+Combined:   "bold red"   "dim cyan"   "bold white on red"
 ```
 
 ---
 
 ## Examples
 
-See the [`examples/`](examples/) directory:
-
-| File | What it shows |
-|---|---|
-| `01_quickstart.py` | Zero-config startup |
-| `02_schema_events.py` | `@event`, `field()`, `color_map` |
-| `03_context.py` | Context propagation, nesting, `gather` isolation |
-| `04_sampling.py` | `sample_rate`, `sample_by` |
-| `05_custom_sink.py` | Writing a custom sink |
-| `06_fastapi_integration.py` | Middleware injecting `request_id` |
-| `07_stdlib_compat.py` | Bridging `logging.getLogger()` |
-| `08_colors_and_formatting.py` | All 3 color layers + `ColorScheme` |
-
-Run any example directly:
-
 ```bash
 uv run python examples/01_quickstart.py
+uv run python examples/02_schema_events.py
+uv run python examples/03_context.py
+uv run python examples/04_sampling.py
+uv run python examples/06_fastapi_integration.py
+uv run python examples/08_colors_and_formatting.py
 ```
 
 ---
 
-## Documentation
+## Docs
 
-| Doc | Description |
-|---|---|
-| [TUTORIAL.md](docs/TUTORIAL.md) | Full feature guide with examples |
-| [TUTORIAL_CN.md](docs/TUTORIAL_CN.md) | 中文功能指南 |
-| [CLAUDE.md](docs/CLAUDE.md) | Architecture reference (for contributors) |
-| [PROGRESS.md](docs/PROGRESS.md) | Design decisions log |
+- [TUTORIAL.md](docs/TUTORIAL.md) — full feature guide
+- [TESTING.md](docs/TESTING.md) — running tests locally
+- [CLAUDE.md](docs/CLAUDE.md) — architecture reference (for contributors)
 
 ---
 
@@ -393,6 +335,4 @@ uv run mypy emitlog --strict
 
 ---
 
-## License
-
-MIT
+MIT License
