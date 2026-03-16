@@ -46,6 +46,8 @@ loguru est excellent pour les scripts synchrones. Le pipeline de processeurs de 
 
 ## Installation
 
+**Python 3.13+ requis.** Si vous obtenez `Could not find a version that satisfies the requirement`, votre version de Python est trop ancienne — mettez à jour Python, ou lancez `pip install --upgrade pip` pour obtenir un message d'erreur plus explicite.
+
 ```bash
 pip install emitlog
 

@@ -46,6 +46,8 @@ loguru is great for sync scripts. structlog's processor pipeline is flexible. Ne
 
 ## Installation
 
+**Requires Python 3.13+.** If you see `Could not find a version that satisfies the requirement`, your Python version is too old — upgrade Python first, or run `pip install --upgrade pip` to get a clearer error message.
+
 ```bash
 pip install emitlog
 
