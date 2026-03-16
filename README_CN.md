@@ -383,7 +383,7 @@ uv run python examples/01_quickstart.py
 ## 参与贡献
 
 ```bash
-git clone https://github.com/yourname/emitlog
+git clone https://github.com/handsomevictor/emitlog
 cd emitlog
 uv sync --extra dev
 
